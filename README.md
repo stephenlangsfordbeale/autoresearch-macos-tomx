@@ -64,6 +64,219 @@ It deliberately avoids:
 
 Example loop:
 
+```
+edit train.py
+run smoke validation
+run quick gate (3 seeds)
+run promotion gate (5 seeds)
+compare metrics
+promote or reject
+archive artifacts
+repeat
+```
+
+This repository provides templates and policies for each stage.
+
+---
+
+## Repository Layout
+
+autoresearch-macos-tomx/
+├── README.md
+├── docs/
+├── task_policies/
+├── agents/
+├── policies/
+├── templates/
+├── runners/
+├── backends/
+├── examples/
+└── scripts/
+
+See `docs/architecture.md` for details.
+
+---
+
+## Quick Start
+
+### 1. Clone
+```
+python scripts/local_runner.py 
+–train-episodes 5 
+–seed 7 
+–output-root logs/smoke_checkgit clone 
+cd autoresearch-macos-tomx
+```
+
+---
+
+### 2. Attach to benchmark repo
+
+Edit:
+```
+examples/tom_ai_research_team/repo_overlay.yaml
+```
+
+Set:
+
+- canonical repo root
+- safe edit surface
+- frozen files
+- runner commands
+- artifact paths
+
+---
+
+### 3. Verify benchmark still runs
+
+Example smoke command:
+```
+python scripts/local_runner.py 
+–train-episodes 5 
+–seed 7 
+–output-root logs/smoke_check
+```
+
+Smoke confirms harness integrity only.
+
+It does not support promotion decisions.
+
+---
+
+### 4. Run quick gate
+```
+python scripts/local_runner.py 
+–train-episodes 800 
+–seed 7 
+–output-root logs/exp_seed7
+```
+
+Repeat for:
+11
+17
+
+---
+
+### 5. Run promotion gate
+
+Add:
+23
+29
+```
+Promotion requires passing all gate rules.
+```
+---
+
+## Promotion Criteria (Default)
+
+Across 5 seeds:
+```
+- mean DeadlockRate not worse
+- mean ToMCoordScore higher
+- mean CollisionRate lower or equal
+- mean SuccessRate higher or equal
+- no catastrophic single-seed regression
+```
+Catastrophic regression example:
+
+---
+
+## Promotion Criteria (Default)
+
+Across 5 seeds:
+
+- mean DeadlockRate not worse
+- mean ToMCoordScore higher
+- mean CollisionRate lower or equal
+- mean SuccessRate higher or equal
+- no catastrophic single-seed regression
+
+Catastrophic regression example:
+DeadlockRate delta > +0.10
+
+---
+
+## Supported Execution Backends
+
+Adapters exist for:
+
+- Codex CLI
+- local Python runner
+- Modal continuation workflows
+
+Optional:
+
+- Azure compatibility wrappers
+
+---
+
+## OMX Integration
+
+This repo assumes project-local OMX installation.
+
+Recommended commands:
+```
+./omx doctor
+./omx setup –scope project –force –verbose
+```
+OMX is used as a structured patch loop coordinator, not a general coding shell.
+
+---
+
+## Autoresearch Contract
+
+Each iteration must:
+
+- modify one file
+- run fixed evaluation seeds
+- preserve benchmark semantics
+- emit packaged artifacts
+- compare against baseline
+- record provenance metadata
+
+---
+
+## Artifact Expectations
+
+Standard bundle:
+
+baseline_metrics/
+candidate_metrics/
+selected_model/
+selection/
+
+These enable deterministic promotion decisions.
+
+docs/case-studies/METHOD_CASE_STUDY.md
+
+For a full delayed-trust split patch family walkthrough.
+
+---
+
+## When To Use This Toolkit
+
+Use when:
+
+- experiments must remain reproducible
+- evaluation is expensive
+- edits must remain bounded
+- promotion requires evidence
+- autonomous patch loops are desired
+
+Do not use when:
+
+- redesigning benchmarks
+- changing environment semantics
+- running exploratory multi-file refactors
+
+---
+
+## Example Case Study
+
+See:
+
+
+
 # autoresearch-macos
 
 ![teaser](progress.png)
