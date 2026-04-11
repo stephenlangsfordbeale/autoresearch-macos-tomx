@@ -1,3 +1,69 @@
+# autoresearch-macos-tomx
+
+A lightweight research orchestration toolkit for disciplined single-file autoresearch loops on macOS using Codex + oh-my-codex (OMX).
+
+This repository provides task contracts, seed-gate policies, promotion rules, runner templates, backend adapters, and reporting scaffolds that sit beside — not inside — a benchmark repository.
+
+It is designed for workflows where:
+
+- only one file is editable (e.g. `train.py`)
+- benchmark semantics are frozen
+- evaluation seeds are fixed
+- promotion decisions are policy-driven
+- artifacts are part of the scientific record
+- autonomous patch loops must remain reproducible
+
+The benchmark repo remains the scientific source of truth. This repo provides orchestration.
+
+---
+
+## Repository Purpose
+
+This project implements a reusable “single-surface autoresearch loop”:
+
+1. Edit a constrained file
+2. Run fixed-budget evaluation
+3. Compare against baseline
+4. Apply promotion rules
+5. Keep or discard the patch
+6. Repeat
+
+Typical targets:
+
+- policy-learning loops
+- belief-state heuristics
+- solver hyperparameters
+- auxiliary losses
+- decision priors
+- interpretability heuristics
+
+---
+
+## Design Principles
+
+This toolkit enforces:
+
+- frozen benchmark semantics
+- explicit promotion thresholds
+- seed-set comparability
+- artifact contracts
+- provenance tracking
+- reproducible evaluation ladders
+
+It deliberately avoids:
+
+- modifying benchmark environments
+- redefining metrics implicitly
+- mixing workflow logic into science repos
+- uncontrolled multi-file edits
+- silent evaluation drift
+
+---
+
+## Intended Workflow
+
+Example loop:
+
 # autoresearch-macos
 
 ![teaser](progress.png)
