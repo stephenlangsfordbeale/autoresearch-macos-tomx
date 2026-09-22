@@ -28,6 +28,8 @@ The wrapper resolves to:
 
 - This integration is local to this repo checkout.
 - The project-scope install keeps OMX config under this repository instead of your user-wide Codex directories.
+- `omx` is the orchestration/runtime launcher; the autoresearch dashboard uses the regular `codex exec` CLI for prompt delivery.
+- Dashboard Codex discovery is configurable with `AUTORESEARCH_CODEX_CLI` or `CODEX_CLI_PATH`; it does not depend on a `Codex.app` GUI bundle.
 - If `oh-my-codex` source is updated, rebuild it with:
 
 ```bash

@@ -76,6 +76,8 @@ The `program.md` file is essentially a super lightweight "skill".
 
 There is now also a repo-local Codex skill at `.codex/skills/autoresearch-lab/SKILL.md` that packages the experiment loop with helper scripts for setup checks, branch creation, bounded runs, log parsing, and `results.tsv` updates.
 
+For a concise operational walkthrough, see [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md).
+
 For a thin local launcher/dashboard, run:
 
 ```bash
@@ -86,8 +88,15 @@ That opens a local web UI with:
 
 - a chat-style prompt composer and local transcript for the current autoresearch repo
 - a second ToMX profile that reuses the external ToM workspace plus its repo-local agent TOMLs
-- a separate `Send To Codex` path so prompt delivery is distinct from direct run buttons
+- a separate `Send To Codex` path that starts a managed `codex exec` job in the selected workspace
 - lightweight buttons for readiness checks and bounded run launching
+
+Prompt delivery uses the regular Codex CLI, not clipboard or GUI automation. Set
+`AUTORESEARCH_CODEX_CLI` or `CODEX_CLI_PATH` to override executable discovery.
+The ToMX profile can be relocated with `AUTORESEARCH_TOMX_ROOT`,
+`AUTORESEARCH_TOMX_PYTHON`, `AUTORESEARCH_TOMX_TASK_PATH`, and
+`AUTORESEARCH_TOMX_SKILL_PATH`. `omx` remains the separate orchestration/runtime
+launcher for HUD, state, autoresearch, and team workflows.
 
 ## Project structure
 

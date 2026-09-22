@@ -554,7 +554,7 @@
       currentJob: null,
       statusByProfile: {},
       chatHistory: {},
-      codexAppAvailable: false,
+      codexCliAvailable: false,
     };
 
     const els = {
@@ -959,7 +959,7 @@
       state.currentJob = payload.current_job;
       state.statusByProfile = payload.status_by_profile || {};
       state.chatHistory = payload.chat_history || {};
-      state.codexAppAvailable = Boolean(payload.codex_app_available);
+      state.codexCliAvailable = Boolean(payload.codex_cli_available);
       if (!state.selectedProfileId && state.profiles[0]) {
         state.selectedProfileId = payload.default_profile_id || state.profiles[0].id;
         applyProfileDefaults(currentProfile());

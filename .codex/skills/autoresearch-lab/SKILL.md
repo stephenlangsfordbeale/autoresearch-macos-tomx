@@ -91,11 +91,23 @@ The dashboard exposes:
 - an `Autoresearch MacOS` profile for this repository
 - a `ToMX Local Quality` profile that reuses the external ToMX workspace and agent TOMLs
 - a local chat-style transcript with prompt history and automatic run-summary messages
-- profile-aware prompt composition plus a `Send To Codex` action that targets `Codex.app` on this Mac
+- profile-aware prompt composition plus a `Send To Codex` action that starts a managed `codex exec` job in the selected workspace
 - lightweight run/status controls kept separate from prompt delivery
+
+The dashboard does not automate a GUI app. It resolves the Codex CLI using:
+
+1. `AUTORESEARCH_CODEX_CLI`
+2. `CODEX_CLI_PATH`
+3. `codex` on `PATH`
+4. `/Applications/ChatGPT.app/Contents/Resources/codex`
+
+To configure the external ToMX profile, set `AUTORESEARCH_TOMX_ROOT`,
+`AUTORESEARCH_TOMX_PYTHON`, `AUTORESEARCH_TOMX_TASK_PATH`, and
+`AUTORESEARCH_TOMX_SKILL_PATH` as needed. Defaults preserve the current local
+layout.
 
 ## References
 
 - Read `references/protocol.md` for the detailed experiment policy, logging schema, and crash/timeout handling guidance.
-- The dashboard imports ToMX agent definitions from `/Users/stephenbeale/Projects/ToM_AI_Research_Team/.codex/agents/` instead of duplicating them locally.
+- The dashboard imports ToMX agent definitions from the configured ToMX root's `.codex/agents/` directory instead of duplicating them locally.
 - `program.md` is still the legacy prompt surface, but prefer this skill plus the helper script for deterministic steps.

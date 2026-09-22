@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -24,6 +25,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from autoresearch_ops import parse_summary_lines, repo_root
+from codex_bridge import build_codex_exec_command, resolve_codex_executable
 
 
 REPO_ROOT = repo_root()
@@ -34,11 +36,22 @@ CURRENT_OMX_TASK = REPO_ROOT / "OMX_TASK.md"
 CURRENT_OMX_NOTES = REPO_ROOT / "# OMX.md"
 CURRENT_POMDP_GUIDE = REPO_ROOT / "POMDP-autoresearch" / "POMDP-autoresearch fork.md"
 CURRENT_SEED_GUIDE = REPO_ROOT / "POMDP-autoresearch" / "Standard seed sets.md"
-CURRENT_TOMX_SKILL = Path("/Users/stephenbeale/.codex/skills/tomx/SKILL.md")
-EXTERNAL_TOMX_ROOT = Path("/Users/stephenbeale/Projects/ToM_AI_Research_Team")
+CURRENT_TOMX_SKILL = Path(
+    os.environ.get("AUTORESEARCH_TOMX_SKILL_PATH", str(Path.home() / ".codex" / "skills" / "tomx" / "SKILL.md"))
+).expanduser()
+EXTERNAL_TOMX_ROOT = Path(
+    os.environ.get("AUTORESEARCH_TOMX_ROOT", "/Users/stephenbeale/Projects/ToM_AI_Research_Team")
+).expanduser()
 EXTERNAL_AGENTS_DIR = EXTERNAL_TOMX_ROOT / ".codex" / "agents"
 EXTERNAL_AGENTS_README = EXTERNAL_AGENTS_DIR / "README.md"
+EXTERNAL_TOMX_TASK = Path(
+    os.environ.get("AUTORESEARCH_TOMX_TASK_PATH", str(EXTERNAL_TOMX_ROOT / "OMX_TASK.md"))
+).expanduser()
+EXTERNAL_TOMX_PYTHON = Path(
+    os.environ.get("AUTORESEARCH_TOMX_PYTHON", str(EXTERNAL_TOMX_ROOT / ".venv" / "bin" / "python"))
+).expanduser()
 CHAT_HISTORY_PATH = REPO_ROOT / ".omx" / "state" / "dashboard-chat-history.json"
+CODEX_LOG_DIR = REPO_ROOT / ".omx" / "state" / "dashboard-codex"
 
 
 def now_iso() -> str:
@@ -129,6 +142,15 @@ def format_job_summary(job: "JobRecord") -> tuple[str, str]:
     if not summary:
         return title, f"{job.profile_title}: {job.action_label} finished with status `{job.status}`."
 
+    if job.action_id == "codex_prompt":
+        return title, "\n".join(
+            [
+                f"Status: `{job.status}`",
+                f"working_directory: `{job.cwd}`",
+                f"log: `{summary.get('log_path', 'n/a')}`",
+            ]
+        )
+
     if job.profile_id == "autoresearch":
         lines = [
             f"Status: `{job.status}`",
@@ -155,57 +177,43 @@ def format_job_summary(job: "JobRecord") -> tuple[str, str]:
     return title, "\n".join(lines)
 
 
-def codex_app_available() -> bool:
-    return Path("/Applications/Codex.app").exists()
+def codex_cli_available() -> bool:
+    return resolve_codex_executable() is not None
 
 
-def send_prompt_to_codex_app(prompt: str, *, dry_run: bool = False) -> dict[str, Any]:
-    if not codex_app_available():
-        raise RuntimeError("Codex.app is not installed at /Applications/Codex.app")
-
-    if dry_run:
-        return {
-            "sent": False,
-            "copied_to_clipboard": False,
-            "target_app": "Codex",
-            "dry_run": True,
-            "mode": "dry_run",
-        }
-
-    subprocess.run(["pbcopy"], input=prompt, text=True, check=True)
-    subprocess.run(["open", "-a", "Codex"], check=False)
-    script = """
-tell application "Codex" to activate
-delay 0.25
-tell application "System Events"
-    keystroke "v" using command down
-    delay 0.15
-    key code 36
-end tell
-"""
-    completed = subprocess.run(
-        ["osascript", "-e", script],
-        check=False,
-        text=True,
-        capture_output=True,
+def make_codex_job(profile: dict[str, Any], prompt: str, *, dry_run: bool = False) -> "JobRecord":
+    executable = resolve_codex_executable()
+    if executable is None:
+        raise RuntimeError(
+            "Codex CLI was not found. Set AUTORESEARCH_CODEX_CLI or CODEX_CLI_PATH, "
+            "or make `codex` available on PATH."
+        )
+    working_directory = Path(profile["workspace_path"]).expanduser()
+    if not working_directory.is_dir():
+        raise RuntimeError(f"Codex working directory does not exist: {working_directory}")
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_path = CODEX_LOG_DIR / f"{profile['id']}-{timestamp}.jsonl"
+    command = build_codex_exec_command(executable, working_directory)
+    return JobRecord(
+        id=f"codex-{profile['id']}-{timestamp}",
+        profile_id=profile["id"],
+        profile_title=profile["title"],
+        action_id="codex_prompt",
+        action_label="Run Codex Prompt",
+        cwd=str(working_directory),
+        status="dry_run" if dry_run else "running",
+        started_at=now_iso(),
+        steps=[
+            JobStep(
+                label="Codex CLI",
+                command=command,
+                cwd=str(working_directory),
+                log_path=str(log_path),
+                summary_kind="codex_exec",
+                stdin_text=prompt,
+            )
+        ],
     )
-    if completed.returncode != 0:
-        return {
-            "sent": False,
-            "copied_to_clipboard": True,
-            "target_app": "Codex",
-            "opened_app": True,
-            "mode": "clipboard_only",
-            "automation_error": completed.stderr.strip()
-            or "AppleScript could not drive Codex automatically.",
-        }
-    return {
-        "sent": True,
-        "copied_to_clipboard": True,
-        "target_app": "Codex",
-        "opened_app": True,
-        "mode": "submitted",
-    }
 
 
 def parse_tom_selection(output_root: Path) -> dict[str, Any]:
@@ -394,6 +402,7 @@ class JobStep:
     log_path: str | None = None
     output_root: str | None = None
     summary_kind: str | None = None
+    stdin_text: str | None = field(default=None, repr=False)
     status: str = "pending"
     returncode: int | None = None
     summary: dict[str, Any] = field(default_factory=dict)
@@ -416,7 +425,10 @@ class JobRecord:
 
     def to_payload(self) -> dict[str, Any]:
         payload = asdict(self)
-        payload["steps"] = [asdict(step) for step in self.steps]
+        payload["steps"] = [
+            {key: value for key, value in asdict(step).items() if key != "stdin_text"}
+            for step in self.steps
+        ]
         payload["log_tail"] = list(self.log_tail)
         return payload
 
@@ -499,11 +511,19 @@ class JobManager:
                 cwd=step.cwd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                stdin=subprocess.PIPE if step.stdin_text is not None else None,
                 text=True,
                 bufsize=1,
             )
             with self._lock:
                 self._current_process = process
+            if step.stdin_text is not None and process.stdin is not None:
+                try:
+                    process.stdin.write(step.stdin_text)
+                except BrokenPipeError:
+                    pass
+                finally:
+                    process.stdin.close()
             assert process.stdout is not None
             for line in process.stdout:
                 if log_handle:
@@ -534,6 +554,12 @@ class JobManager:
                 job.finished_at = now_iso()
 
     def _summarize_step(self, step: JobStep) -> dict[str, Any]:
+        if step.summary_kind == "codex_exec":
+            return {
+                "log_path": step.log_path,
+                "working_directory": step.cwd,
+                "command": step.command,
+            }
         if step.summary_kind == "autoresearch_log" and step.log_path:
             log_path = Path(step.log_path)
             if log_path.exists():
@@ -565,10 +591,11 @@ def autoresearch_status() -> dict[str, Any]:
 def tomx_status() -> dict[str, Any]:
     data = {
         "workspace_path": str(EXTERNAL_TOMX_ROOT),
-        "task_contract_path": str(CURRENT_OMX_TASK),
+        "task_contract_path": str(EXTERNAL_TOMX_TASK),
         "train_py_exists": (EXTERNAL_TOMX_ROOT / "train.py").exists(),
         "runner_exists": (EXTERNAL_TOMX_ROOT / "scripts" / "local_runner.py").exists(),
-        "venv_python_exists": (EXTERNAL_TOMX_ROOT / ".venv" / "bin" / "python").exists(),
+        "python_path": str(EXTERNAL_TOMX_PYTHON),
+        "venv_python_exists": EXTERNAL_TOMX_PYTHON.exists(),
         "agents_ready": all(path.exists() for path in sorted(EXTERNAL_AGENTS_DIR.glob("tom-*.toml"))),
         "ready": False,
     }
@@ -578,7 +605,7 @@ def tomx_status() -> dict[str, Any]:
         and data["runner_exists"]
         and data["venv_python_exists"]
         and data["agents_ready"]
-        and CURRENT_OMX_TASK.exists()
+        and EXTERNAL_TOMX_TASK.exists()
     )
     return data
 
@@ -633,7 +660,7 @@ def build_profiles() -> list[dict[str, Any]]:
             "title": "ToMX Local Quality",
             "summary": "Train.py-only local quality mode for the external ToM workspace, using the current OMX task contract and imported repo-local agent roles.",
             "workspace_path": str(EXTERNAL_TOMX_ROOT),
-            "task_contract_path": str(CURRENT_OMX_TASK),
+            "task_contract_path": str(EXTERNAL_TOMX_TASK),
             "guardrails": [
                 "train.py only",
                 "smoke for breakage",
@@ -641,7 +668,7 @@ def build_profiles() -> list[dict[str, Any]]:
                 "deadlock is the veto signal",
             ],
             "docs": [
-                {"label": "OMX Task Contract", "path": str(CURRENT_OMX_TASK), "note": "Train.py-only Variant 1 operating rules."},
+                {"label": "ToMX Task Contract", "path": str(EXTERNAL_TOMX_TASK), "note": "Train.py-only Variant 1 operating rules."},
                 {"label": "ToMX Skill", "path": str(CURRENT_TOMX_SKILL), "note": "Long-run research context and frontier guidance."},
                 {"label": "Agent README", "path": str(EXTERNAL_AGENTS_README), "note": "Imported ToMX agent roles for tune/judge/curate/policy."},
                 {"label": "Seed Set Guide", "path": str(CURRENT_SEED_GUIDE), "note": "3-seed quick gate and 5-seed promotion policy."},
@@ -706,7 +733,7 @@ def make_tomx_job(profile: dict[str, Any], action_id: str, params: dict[str, Any
     focus = params.get("focus", "")
     base_label = params.get("run_label") or slugify(focus)
     seed = int(params.get("seed") or profile["default_seed"])
-    python_path = str(EXTERNAL_TOMX_ROOT / ".venv" / "bin" / "python")
+    python_path = str(EXTERNAL_TOMX_PYTHON)
     runner_path = str(EXTERNAL_TOMX_ROOT / "scripts" / "local_runner.py")
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -779,7 +806,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "current_job": JOB_MANAGER.current().to_payload() if JOB_MANAGER.current() else None,
                     "status_by_profile": STATUS_BY_PROFILE,
                     "chat_history": load_chat_history(),
-                    "codex_app_available": codex_app_available(),
+                    "codex_cli_available": codex_cli_available(),
                 }
             )
             return
@@ -871,26 +898,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "run_label": params.get("run_label"),
                     },
                 )
-                delivery = send_prompt_to_codex_app(prompt, dry_run=bool(params.get("dry_run")))
+                job = make_codex_job(profile, prompt, dry_run=bool(params.get("dry_run")))
+                if not params.get("dry_run"):
+                    JOB_MANAGER.start(job)
                 history = append_chat_entry(
                     profile_id,
                     "system",
-                    "Codex delivery",
-                    (
-                        "Prompt delivery prepared for Codex.app."
-                        if delivery.get("dry_run")
-                        else "Prompt copied to the clipboard, Codex was opened, and the prompt was submitted."
-                        if delivery.get("mode") == "submitted"
-                        else "Prompt copied to the clipboard and Codex was opened. If it did not auto-submit, press Cmd-V then Enter."
-                    ),
-                    meta=delivery,
+                    "Codex CLI job",
+                    "Codex prompt prepared." if params.get("dry_run") else "Codex CLI prompt job started.",
+                    meta={"job_id": job.id, "dry_run": bool(params.get("dry_run"))},
                 )
                 return {
-                    "message": (
-                        "Prompt sent to Codex."
-                        if delivery.get("mode") == "submitted" or delivery.get("dry_run")
-                        else "Prompt copied and Codex opened. If needed, just press Cmd-V then Enter."
-                    ),
+                    "message": "Codex prompt prepared." if params.get("dry_run") else "Codex CLI prompt job started.",
+                    "job": job.to_payload(),
                     "chat_history": history,
                     "status": STATUS_BY_PROFILE.get(profile_id),
                 }
@@ -925,26 +945,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "run_label": params.get("run_label"),
                     },
                 )
-                delivery = send_prompt_to_codex_app(prompt, dry_run=bool(params.get("dry_run")))
+                job = make_codex_job(profile, prompt, dry_run=bool(params.get("dry_run")))
+                if not params.get("dry_run"):
+                    JOB_MANAGER.start(job)
                 history = append_chat_entry(
                     profile_id,
                     "system",
-                    "Codex delivery",
-                    (
-                        "Prompt delivery prepared for Codex.app."
-                        if delivery.get("dry_run")
-                        else "Prompt copied to the clipboard, Codex was opened, and the prompt was submitted."
-                        if delivery.get("mode") == "submitted"
-                        else "Prompt copied to the clipboard and Codex was opened. If it did not auto-submit, press Cmd-V then Enter."
-                    ),
-                    meta=delivery,
+                    "Codex CLI job",
+                    "Codex prompt prepared." if params.get("dry_run") else "Codex CLI prompt job started.",
+                    meta={"job_id": job.id, "dry_run": bool(params.get("dry_run"))},
                 )
                 return {
-                    "message": (
-                        "Prompt sent to Codex."
-                        if delivery.get("mode") == "submitted" or delivery.get("dry_run")
-                        else "Prompt copied and Codex opened. If needed, just press Cmd-V then Enter."
-                    ),
+                    "message": "Codex prompt prepared." if params.get("dry_run") else "Codex CLI prompt job started.",
+                    "job": job.to_payload(),
                     "chat_history": history,
                     "status": STATUS_BY_PROFILE.get(profile_id),
                 }

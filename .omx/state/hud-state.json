@@ -1,6 +1,0 @@
-{
-  "last_turn_at": "2026-04-11T14:13:49.486Z",
-  "last_progress_at": "2026-04-11T14:13:49.486Z",
-  "turn_count": 20,
-  "last_agent_output": "Committed on `tomx` as `0e53bc3`:\n`Add backend adapters without importing benchmark semantics`\n\nPush"
-}
