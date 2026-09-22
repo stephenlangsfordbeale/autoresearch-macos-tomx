@@ -1,7 +1,7 @@
 {
-  "pid": 70566,
+  "pid": 72742,
   "parent_pid": 94885,
-  "started_at": "2026-09-22T16:05:46.498Z",
+  "started_at": "2026-09-22T16:06:08.537Z",
   "cwd": "/Users/stephenbeale/Projects/autoresearch-macos-tomx",
   "notify_script": "/Users/stephenbeale/.nvm/versions/node/v24.15.0/lib/node_modules/oh-my-codex/dist/scripts/notify-hook.js",
   "authority_only": true,
@@ -17,7 +17,7 @@
     "max_per_tick": 5,
     "run_count": 1,
     "leader_only": true,
-    "last_tick_at": "2026-09-22T16:05:46.508Z",
+    "last_tick_at": "2026-09-22T16:06:08.543Z",
     "last_result": {
       "processed": 0,
       "skipped": 0,
@@ -30,7 +30,7 @@
     "leader_only": true,
     "stale_threshold_ms": 180000,
     "precomputed_leader_stale": false,
-    "last_tick_at": "2026-09-22T16:05:46.511Z",
+    "last_tick_at": "2026-09-22T16:06:08.544Z",
     "last_error": null,
     "run_count": 1
   },
@@ -57,7 +57,7 @@
   "fallback_auto_nudge": {
     "enabled": true,
     "stall_ms": 5000,
-    "last_tick_at": "2026-09-22T16:05:46.924Z",
+    "last_tick_at": "2026-09-22T16:06:08.922Z",
     "last_turn_at": "2026-09-21T22:46:39.099Z",
     "last_turn_count": 0,
     "last_message": "",
@@ -79,8 +79,8 @@
     "base_ms": 75,
     "max_ms": 1000,
     "current_ms": 1000,
-    "idle_streak": 4,
-    "last_tick_at": "2026-09-22T16:05:46.926Z",
+    "idle_streak": 8,
+    "last_tick_at": "2026-09-22T16:06:08.924Z",
     "last_activity_at": "2026-09-22T16:05:23.707Z",
     "last_activity_reason": "hud_state_missing"
   },
